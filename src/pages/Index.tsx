@@ -29,11 +29,18 @@ const Index = () => {
             Tell us what you're craving, and we'll help you satisfy it—whether you want to cook or pick up nearby.
           </p>
           
-          <Link to="/discover">
-            <Button size="lg" className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all">
-              Start Your Craving Journey
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/auth">
+              <Button size="lg" className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all">
+                Get Started
+              </Button>
+            </Link>
+            <Link to="/discover">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-6">
+                Discover Recipes
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
