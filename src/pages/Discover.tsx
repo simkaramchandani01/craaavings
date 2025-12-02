@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import CravingForm from "@/components/CravingForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
 
@@ -26,6 +29,7 @@ export interface CravingResult {
 const Discover = () => {
   const [results, setResults] = useState<CravingResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (
     craving: string,
@@ -66,6 +70,14 @@ const Discover = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               What Are You Craving?
