@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,23 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Check, X } from "lucide-react";
+import { z } from "zod";
+
+const passwordSchema = z.string()
+  .min(8, "At least 8 characters")
+  .regex(/[A-Z]/, "At least one uppercase letter")
+  .regex(/[a-z]/, "At least one lowercase letter")
+  .regex(/[0-9]/, "At least one number")
+  .regex(/[^A-Za-z0-9]/, "At least one special character");
+
+const passwordRequirements = [
+  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { label: "Uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+  { label: "Lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+  { label: "Number", test: (p: string) => /[0-9]/.test(p) },
+  { label: "Special character", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +33,10 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const isPasswordValid = useMemo(() => {
+    return passwordSchema.safeParse(password).success;
+  }, [password]);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -31,6 +51,16 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isPasswordValid) {
+      toast({
+        title: "Weak password",
+        description: "Please meet all password requirements.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -202,11 +232,32 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
                 />
+                {password && (
+                  <div className="mt-2 space-y-1">
+                    {passwordRequirements.map((req) => {
+                      const passed = req.test(password);
+                      return (
+                        <div
+                          key={req.label}
+                          className={`flex items-center gap-2 text-xs ${
+                            passed ? "text-green-600" : "text-muted-foreground"
+                          }`}
+                        >
+                          {passed ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          {req.label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || !isPasswordValid}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
