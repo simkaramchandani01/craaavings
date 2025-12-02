@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -96,11 +96,20 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">CRAVINGS</h1>
-          <p className="text-muted-foreground">Join the food discovery community</p>
-        </div>
+      <div className="w-full max-w-md">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/")}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Home
+        </Button>
+        <Card className="w-full p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">CRAVINGS</h1>
+            <p className="text-muted-foreground">Join the food discovery community</p>
+          </div>
 
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -210,7 +219,8 @@ const Auth = () => {
             </form>
           </TabsContent>
         </Tabs>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
