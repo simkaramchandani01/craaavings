@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { craving, proficiency, mode } = await req.json();
+    const { craving, proficiency, mode, location } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -41,23 +41,40 @@ Provide 2-3 recipes that match the proficiency level. For beginners, keep recipe
 
       userPrompt = `The user is craving: "${craving}". Their cooking proficiency is ${proficiency}. Suggest appropriate recipes.`;
     } else {
-      systemPrompt = `You are a local food discovery assistant. Based on user cravings, suggest types of restaurants, cafes, or grocery stores they should look for nearby.
+      const locationContext = location 
+        ? `The user's location is at coordinates (${location.lat}, ${location.lng}). Generate realistic restaurant names and suggest they are within 1 mile of this location.`
+        : `The user has not shared their location. Suggest general types of restaurants they should look for nearby.`;
+
+      systemPrompt = `You are a local food discovery assistant helping users find nearby restaurants for delivery/pickup.
+${locationContext}
+
 Return a JSON object with this exact structure:
 {
   "mode": "pickup",
   "locations": [
     {
-      "name": "Type of Location",
-      "type": "Restaurant/Cafe/Grocery Store",
-      "description": "What to look for or order here",
-      "distance": "Nearby"
+      "name": "Restaurant Name",
+      "type": "Restaurant Type (e.g., Thai Restaurant, Italian Bistro, Mexican Grill)",
+      "menuItem": "Specific dish name that matches the craving",
+      "price": "Price range like $12.99 or $15-20",
+      "description": "Brief description of why this matches their craving and what makes this dish special",
+      "distance": "0.3 miles" or "0.7 miles" (within 1 mile)
     }
   ]
 }
-Provide 3-4 location suggestions that would satisfy their craving. Be specific about what dishes or items to look for.`;
 
-      userPrompt = `The user is craving: "${craving}". Suggest types of nearby locations where they can satisfy this craving.`;
+IMPORTANT:
+- Generate 4-5 realistic restaurant suggestions
+- Each restaurant must have a specific menu item that matches the craving
+- Include realistic prices for each menu item
+- All distances should be under 1 mile (e.g., "0.2 miles", "0.5 miles", "0.8 miles")
+- Make restaurant names sound authentic and local
+- Vary the restaurant types (different cuisines, fast casual vs sit-down, etc.)`;
+
+      userPrompt = `The user is craving: "${craving}". Find nearby restaurants with specific menu items and prices that would satisfy this craving.`;
     }
+
+    console.log("Processing craving request:", { craving, proficiency, mode, hasLocation: !!location });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -84,6 +101,8 @@ Provide 3-4 location suggestions that would satisfy their craving. Be specific a
     const data = await response.json();
     const content = data.choices[0].message.content;
     const result = JSON.parse(content);
+
+    console.log("Successfully processed craving, returning results");
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

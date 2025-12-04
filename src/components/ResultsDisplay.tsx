@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChefHat, MapPin, Clock, Utensils } from "lucide-react";
+import { ChefHat, MapPin, Clock, Utensils, DollarSign } from "lucide-react";
 import type { CravingResult } from "@/pages/Discover";
 
 interface ResultsDisplayProps {
@@ -19,7 +19,7 @@ const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         ) : (
           <>
             <MapPin className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">Nearby Locations</h2>
+            <h2 className="text-2xl font-bold">Nearby Restaurants</h2>
           </>
         )}
       </div>
@@ -82,10 +82,23 @@ const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
             <Card key={index} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold mb-2">{location.name}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-xl font-semibold">{location.name}</h3>
+                    {location.price && (
+                      <Badge variant="outline" className="flex items-center gap-1 text-green-600 border-green-600">
+                        <DollarSign className="w-3 h-3" />
+                        {location.price}
+                      </Badge>
+                    )}
+                  </div>
                   <Badge variant="secondary" className="mb-3">
                     {location.type}
                   </Badge>
+                  {location.menuItem && (
+                    <p className="text-sm font-medium text-primary mb-2">
+                      Recommended: {location.menuItem}
+                    </p>
+                  )}
                   <p className="text-muted-foreground mb-2">{location.description}</p>
                   {location.distance && (
                     <p className="text-sm text-primary font-medium">

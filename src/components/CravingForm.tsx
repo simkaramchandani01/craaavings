@@ -4,11 +4,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card } from "@/components/ui/card";
-import { ChefHat, MapPin, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ChefHat, MapPin, Loader2, Navigation } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import type { ProficiencyLevel, Mode } from "@/pages/Discover";
 
 interface CravingFormProps {
-  onSubmit: (craving: string, proficiency: ProficiencyLevel, mode: Mode) => void;
+  onSubmit: (craving: string, proficiency: ProficiencyLevel, mode: Mode, location?: { lat: number; lng: number }) => void;
   isLoading: boolean;
 }
 
@@ -16,11 +18,53 @@ const CravingForm = ({ onSubmit, isLoading }: CravingFormProps) => {
   const [craving, setCraving] = useState("");
   const [proficiency, setProficiency] = useState<ProficiencyLevel>("beginner");
   const [mode, setMode] = useState<Mode>("cook");
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const { toast } = useToast();
+
+  const handleLocationToggle = async (enabled: boolean) => {
+    if (enabled) {
+      setIsGettingLocation(true);
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        });
+        
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationEnabled(true);
+        toast({
+          title: "Location enabled",
+          description: "We'll find restaurants within 1 mile of you.",
+        });
+      } catch (error) {
+        console.error("Geolocation error:", error);
+        toast({
+          title: "Location access denied",
+          description: "Please enable location services to find nearby restaurants.",
+          variant: "destructive",
+        });
+        setLocationEnabled(false);
+      } finally {
+        setIsGettingLocation(false);
+      }
+    } else {
+      setLocationEnabled(false);
+      setUserLocation(null);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (craving.trim()) {
-      onSubmit(craving, proficiency, mode);
+      onSubmit(craving, proficiency, mode, locationEnabled ? userLocation || undefined : undefined);
     }
   };
 
@@ -81,6 +125,43 @@ const CravingForm = ({ onSubmit, isLoading }: CravingFormProps) => {
             </Label>
           </RadioGroup>
         </div>
+
+        {/* Location Toggle (only for pickup mode) */}
+        {mode === "pickup" && (
+          <div className="space-y-3 p-4 rounded-lg border-2 border-border bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Navigation className="w-5 h-5 text-primary" />
+                <div>
+                  <Label htmlFor="location-toggle" className="font-semibold cursor-pointer">
+                    Enable Location Services
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Find restaurants within 1 mile of you
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="location-toggle"
+                checked={locationEnabled}
+                onCheckedChange={handleLocationToggle}
+                disabled={isGettingLocation}
+              />
+            </div>
+            {isGettingLocation && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Getting your location...
+              </div>
+            )}
+            {locationEnabled && userLocation && (
+              <p className="text-sm text-green-600 flex items-center gap-1">
+                <MapPin className="w-4 h-4" />
+                Location enabled - ready to find nearby restaurants
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Proficiency Level (only for cook mode) */}
         {mode === "cook" && (

@@ -23,6 +23,8 @@ export interface CravingResult {
     type: string;
     description: string;
     distance?: string;
+    menuItem?: string;
+    price?: string;
   }>;
 }
 
@@ -34,7 +36,8 @@ const Discover = () => {
   const handleSubmit = async (
     craving: string,
     proficiency: ProficiencyLevel,
-    mode: Mode
+    mode: Mode,
+    location?: { lat: number; lng: number }
   ) => {
     setIsLoading(true);
     setResults(null);
@@ -49,7 +52,7 @@ const Discover = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ craving, proficiency, mode }),
+          body: JSON.stringify({ craving, proficiency, mode, location }),
         }
       );
 

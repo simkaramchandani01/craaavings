@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, ArrowLeft, Check, X } from "lucide-react";
 import { z } from "zod";
@@ -23,7 +22,7 @@ const passwordRequirements = [
   { label: "Special character", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
 
-type Step = "email" | "verify" | "reset";
+type Step = "email" | "verify";
 
 interface ForgotPasswordFlowProps {
   onBack: () => void;
@@ -45,14 +44,22 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-reset-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send code");
+      }
 
       toast({
         title: "Code sent!",
@@ -70,59 +77,39 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
+  const handleVerifyAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length !== 6) return;
+    if (otp.length !== 6 || !isPasswordValid) return;
     
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, code: otp, newPassword }),
+        }
+      );
 
-      if (error) throw error;
+      const data = await response.json();
 
-      toast({
-        title: "Verified!",
-        description: "You can now set a new password.",
-      });
-      setStep("reset");
-    } catch (error: any) {
-      toast({
-        title: "Invalid code",
-        description: "The code you entered is incorrect or expired.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isPasswordValid) return;
-    
-    setIsLoading(true);
-
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reset password");
+      }
 
       toast({
         title: "Password updated!",
-        description: "Your password has been successfully reset.",
+        description: "Your password has been successfully reset. You can now sign in.",
       });
       onSuccess();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update password.",
+        description: error.message || "Failed to reset password.",
         variant: "destructive",
       });
     } finally {
@@ -142,7 +129,7 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">Forgot Password</h2>
             <p className="text-sm text-muted-foreground">
-              Enter your email to receive a verification code
+              Enter your email to receive a 6-digit verification code
             </p>
           </div>
 
@@ -172,7 +159,7 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
       )}
 
       {step === "verify" && (
-        <form onSubmit={handleVerifyCode} className="space-y-4">
+        <form onSubmit={handleVerifyAndReset} className="space-y-4">
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">Enter Verification Code</h2>
             <p className="text-sm text-muted-foreground">
@@ -195,41 +182,6 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
                 <InputOTPSlot index={5} />
               </InputOTPGroup>
             </InputOTP>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 6}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              "Verify Code"
-            )}
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={() => {
-              setOtp("");
-              handleSendCode({ preventDefault: () => {} } as React.FormEvent);
-            }}
-            disabled={isLoading}
-          >
-            Resend Code
-          </Button>
-        </form>
-      )}
-
-      {step === "reset" && (
-        <form onSubmit={handleResetPassword} className="space-y-4">
-          <div className="text-center mb-4">
-            <h2 className="text-lg font-semibold">Set New Password</h2>
-            <p className="text-sm text-muted-foreground">
-              Create a strong password for your account
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -266,15 +218,32 @@ export const ForgotPasswordFlow = ({ onBack, onSuccess }: ForgotPasswordFlowProp
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading || !isPasswordValid}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || otp.length !== 6 || !isPasswordValid}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Updating password...
+                Resetting password...
               </>
             ) : (
               "Reset Password"
             )}
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => {
+              setOtp("");
+              handleSendCode({ preventDefault: () => {} } as React.FormEvent);
+            }}
+            disabled={isLoading}
+          >
+            Resend Code
           </Button>
         </form>
       )}
