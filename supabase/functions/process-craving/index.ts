@@ -42,10 +42,12 @@ Provide 2-3 recipes that match the proficiency level. For beginners, keep recipe
       userPrompt = `The user is craving: "${craving}". Their cooking proficiency is ${proficiency}. Suggest appropriate recipes.`;
     } else {
       const locationContext = location 
-        ? `The user's location is at coordinates (${location.lat}, ${location.lng}). Generate realistic restaurant names and suggest they are within 1 mile of this location.`
+        ? `The user is located at GPS coordinates: latitude ${location.lat}, longitude ${location.lng}. 
+Based on these real coordinates, suggest ACTUAL restaurants that would realistically exist in this geographic area. 
+Consider the region, city, and neighborhood these coordinates correspond to when generating restaurant names and cuisines.`
         : `The user has not shared their location. Suggest general types of restaurants they should look for nearby.`;
 
-      systemPrompt = `You are a local food discovery assistant helping users find nearby restaurants for delivery/pickup.
+      systemPrompt = `You are a local food discovery assistant. Your job is to suggest realistic restaurant options.
 ${locationContext}
 
 Return a JSON object with this exact structure:
@@ -55,23 +57,24 @@ Return a JSON object with this exact structure:
     {
       "name": "Restaurant Name",
       "type": "Restaurant Type (e.g., Thai Restaurant, Italian Bistro, Mexican Grill)",
-      "menuItem": "Specific dish name that matches the craving",
-      "price": "Price range like $12.99 or $15-20",
-      "description": "Brief description of why this matches their craving and what makes this dish special",
-      "distance": "0.3 miles" or "0.7 miles" (within 1 mile)
+      "menuItem": "Specific dish name from their menu that best matches the craving",
+      "price": "$XX.XX (specific price)",
+      "description": "Brief description of the dish and why it matches the craving",
+      "distance": "0.X miles"
     }
   ]
 }
 
-IMPORTANT:
-- Generate 4-5 realistic restaurant suggestions
-- Each restaurant must have a specific menu item that matches the craving
-- Include realistic prices for each menu item
-- All distances should be under 1 mile (e.g., "0.2 miles", "0.5 miles", "0.8 miles")
-- Make restaurant names sound authentic and local
-- Vary the restaurant types (different cuisines, fast casual vs sit-down, etc.)`;
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 5 restaurant suggestions
+- All restaurants must be within 1 mile (distances like "0.2 miles", "0.4 miles", "0.6 miles", "0.8 miles", "0.9 miles")
+- Use restaurant names that sound real and fit the geographic area of the coordinates
+- Each suggestion must include ONE specific menu item that BEST matches what the user is craving
+- Include realistic, specific prices (e.g., "$14.99", "$18.50", not ranges)
+- Vary the restaurant types and price points
+- Order results from closest to furthest distance`;
 
-      userPrompt = `The user is craving: "${craving}". Find nearby restaurants with specific menu items and prices that would satisfy this craving.`;
+      userPrompt = `The user is craving: "${craving}". Suggest 5 nearby restaurants with the single best menu item from each that matches this craving, along with the price.`;
     }
 
     console.log("Processing craving request:", { craving, proficiency, mode, hasLocation: !!location });
