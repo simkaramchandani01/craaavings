@@ -56,6 +56,7 @@ Return a JSON object with this exact structure:
   "locations": [
     {
       "name": "Restaurant Name",
+      "address": "123 Street Name, City, State ZIP",
       "type": "Restaurant Type (e.g., Thai Restaurant, Italian Bistro, Mexican Grill)",
       "menuItem": "Specific dish name from their menu that best matches the craving",
       "price": "$XX.XX (specific price)",
@@ -69,12 +70,13 @@ CRITICAL REQUIREMENTS:
 - Generate EXACTLY 5 restaurant suggestions
 - All restaurants must be within 1 mile (distances like "0.2 miles", "0.4 miles", "0.6 miles", "0.8 miles", "0.9 miles")
 - Use restaurant names that sound real and fit the geographic area of the coordinates
+- Include a realistic street address for each restaurant based on the geographic area
 - Each suggestion must include ONE specific menu item that BEST matches what the user is craving
 - Include realistic, specific prices (e.g., "$14.99", "$18.50", not ranges)
 - Vary the restaurant types and price points
 - Order results from closest to furthest distance`;
 
-      userPrompt = `The user is craving: "${craving}". Suggest 5 nearby restaurants with the single best menu item from each that matches this craving, along with the price.`;
+      userPrompt = `The user is craving: "${craving}". Suggest 5 nearby restaurants with addresses, the single best menu item from each that matches this craving, and the price.`;
     }
 
     console.log("Processing craving request:", { craving, proficiency, mode, hasLocation: !!location });

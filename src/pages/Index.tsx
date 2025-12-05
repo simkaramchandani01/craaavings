@@ -35,9 +35,9 @@ const Index = () => {
                 Get Started
               </Button>
             </Link>
-            <Link to="/discover">
+            <Link to="/communities">
               <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-                Discover Recipes
+                Browse Communities
               </Button>
             </Link>
           </div>
