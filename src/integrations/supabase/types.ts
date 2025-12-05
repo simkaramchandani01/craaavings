@@ -97,6 +97,42 @@ export type Database = {
           },
         ]
       }
+      favorite_restaurants: {
+        Row: {
+          address: string | null
+          created_at: string
+          description: string | null
+          id: string
+          menu_item: string | null
+          name: string
+          price: string | null
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          menu_item?: string | null
+          name: string
+          price?: string | null
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          menu_item?: string | null
+          name?: string
+          price?: string | null
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       password_reset_codes: {
         Row: {
           code: string
@@ -247,6 +283,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      saved_recipes: {
+        Row: {
+          cook_time: string | null
+          created_at: string
+          difficulty: string | null
+          id: string
+          ingredients: Json
+          instructions: Json
+          title: string
+          user_id: string
+        }
+        Insert: {
+          cook_time?: string | null
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          ingredients?: Json
+          instructions?: Json
+          title: string
+          user_id: string
+        }
+        Update: {
+          cook_time?: string | null
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          ingredients?: Json
+          instructions?: Json
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       shared_recipes: {
         Row: {
