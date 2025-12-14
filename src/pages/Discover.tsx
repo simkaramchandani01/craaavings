@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bookmark, FolderHeart } from "lucide-react";
+import { ArrowLeft, FolderHeart, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CravingForm from "@/components/CravingForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
@@ -110,18 +110,30 @@ const Discover = () => {
           <div className="flex items-center justify-between mb-6">
             <Button
               variant="ghost"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/home")}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/saved")}
-            >
-              <FolderHeart className="w-4 h-4 mr-2" />
-              My Saved Items
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/saved")}
+              >
+                <FolderHeart className="w-4 h-4 mr-2" />
+                My Saved Items
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate("/");
+                }}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
