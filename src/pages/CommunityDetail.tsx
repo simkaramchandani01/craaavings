@@ -18,6 +18,8 @@ type SharedRecipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
   likes_count?: number;
   comments_count?: number;
   user_has_liked?: boolean;
+  average_rating?: number;
+  user_rating?: number;
 };
 
 const CommunityDetail = () => {
@@ -82,7 +84,7 @@ const CommunityDetail = () => {
 
       if (recipesError) throw recipesError;
 
-      // Get likes and comments counts
+      // Get likes, comments, and ratings
       const recipesWithData = await Promise.all(
         (recipesData || []).map(async (recipe) => {
           const { count: likesCount } = await supabase
@@ -102,11 +104,30 @@ const CommunityDetail = () => {
             .eq("user_id", userId)
             .maybeSingle();
 
+          // Get ratings
+          const { data: ratings } = await supabase
+            .from("recipe_ratings")
+            .select("rating")
+            .eq("recipe_id", recipe.id);
+
+          const { data: userRating } = await supabase
+            .from("recipe_ratings")
+            .select("rating")
+            .eq("recipe_id", recipe.id)
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          const averageRating = ratings && ratings.length > 0
+            ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+            : 0;
+
           return {
             ...recipe,
             likes_count: likesCount || 0,
             comments_count: commentsCount || 0,
             user_has_liked: !!likeData,
+            average_rating: averageRating,
+            user_rating: userRating?.rating || 0,
           };
         })
       );

@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { ChefHat, Users, LogOut, FolderHeart } from "lucide-react";
+import { ChefHat, Users, LogOut, FolderHeart, Settings } from "lucide-react";
 
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -49,7 +49,13 @@ const Home = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-end gap-3 mb-8">
+            <Link to="/settings">
+              <Button variant="outline">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out

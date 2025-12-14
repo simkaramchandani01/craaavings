@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Home from "./pages/Home";
 import Discover from "./pages/Discover";
 import Saved from "./pages/Saved";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import Communities from "./pages/Communities";
 import CommunityDetail from "./pages/CommunityDetail";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/home" element={<Home />} />
           <Route path="/discover" element={<Discover />} />
           <Route path="/saved" element={<Saved />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/communities" element={<Communities />} />
           <Route path="/community/:slug" element={<CommunityDetail />} />
