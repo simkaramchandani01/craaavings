@@ -46,7 +46,7 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/communities");
+        navigate("/home");
       }
     };
     checkUser();
@@ -87,7 +87,7 @@ const Auth = () => {
         description: "Welcome to CRAVINGS! Your profile has been set up.",
       });
 
-      navigate("/communities");
+      navigate("/home");
     } catch (error: any) {
       toast({
         title: "Sign up failed",
@@ -116,7 +116,7 @@ const Auth = () => {
         description: "You've successfully signed in.",
       });
 
-      navigate("/communities");
+      navigate("/home");
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -150,7 +150,7 @@ const Auth = () => {
               onBack={() => setShowForgotPassword(false)}
               onSuccess={() => {
                 setShowForgotPassword(false);
-                navigate("/communities");
+                navigate("/home");
               }}
             />
           ) : (
