@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Heart, MessageCircle, Clock, Utensils } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import RecipeComments from "./RecipeComments";
+import StarRating from "./StarRating";
 import type { Database } from "@/integrations/supabase/types";
 
 type Recipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
@@ -17,6 +18,8 @@ type Recipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
   likes_count?: number;
   comments_count?: number;
   user_has_liked?: boolean;
+  average_rating?: number;
+  user_rating?: number;
 };
 
 interface RecipeCardProps {
@@ -28,6 +31,9 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [currentRating, setCurrentRating] = useState(recipe.user_rating || 0);
+  const [averageRating, setAverageRating] = useState(recipe.average_rating || 0);
+  const [isRating, setIsRating] = useState(false);
 
   const handleLike = async () => {
     setIsLiking(true);
@@ -59,6 +65,45 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
       });
     } finally {
       setIsLiking(false);
+    }
+  };
+
+  const handleRate = async (rating: number) => {
+    setIsRating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("recipe_ratings")
+        .upsert(
+          { recipe_id: recipe.id, user_id: user.id, rating },
+          { onConflict: "recipe_id,user_id" }
+        );
+
+      if (error) throw error;
+
+      setCurrentRating(rating);
+
+      const { data: ratings } = await supabase
+        .from("recipe_ratings")
+        .select("rating")
+        .eq("recipe_id", recipe.id);
+
+      if (ratings && ratings.length > 0) {
+        const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+        setAverageRating(avg);
+      }
+
+      toast({ title: "Rated!", description: `You rated this recipe ${rating} stars` });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRating(false);
     }
   };
 
@@ -123,6 +168,25 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
               {tag}
             </Badge>
           ))}
+        </div>
+
+        {/* Rating */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Your rating:</span>
+            <StarRating
+              rating={currentRating}
+              onRate={handleRate}
+              size="sm"
+            />
+          </div>
+          {averageRating > 0 && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span>Avg:</span>
+              <StarRating rating={Math.round(averageRating)} readonly size="sm" />
+              <span>({averageRating.toFixed(1)})</span>
+            </div>
+          )}
         </div>
 
         {/* Ingredients */}

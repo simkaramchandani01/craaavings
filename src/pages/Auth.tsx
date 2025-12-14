@@ -27,11 +27,19 @@ const passwordRequirements = [
   { label: "Special character", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
 
+const generateUniqueUsername = () => {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "user";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState(avatarOptions[0].src);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -67,13 +75,15 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      const uniqueUsername = generateUniqueUsername();
+      
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            username,
+            username: uniqueUsername,
             full_name: fullName,
             avatar_url: selectedAvatar,
           },
@@ -84,7 +94,7 @@ const Auth = () => {
 
       toast({
         title: "Account created!",
-        description: "Welcome to CRAVINGS! Your profile has been set up.",
+        description: `Welcome to CRAVINGS! Your username is ${uniqueUsername}. You can change it in Settings.`,
       });
 
       navigate("/home");
@@ -214,18 +224,6 @@ const Auth = () => {
                     selectedAvatar={selectedAvatar}
                     onSelect={setSelectedAvatar}
                   />
-
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-username">Username</Label>
-                    <Input
-                      id="signup-username"
-                      type="text"
-                      placeholder="foodlover123"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                    />
-                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-fullname">Full Name</Label>
