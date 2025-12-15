@@ -10,7 +10,10 @@ import Saved from "./pages/Saved";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import Communities from "./pages/Communities";
+import MyCommunities from "./pages/MyCommunities";
 import CommunityDetail from "./pages/CommunityDetail";
+import Friends from "./pages/Friends";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,7 +32,10 @@ const App = () => (
           <Route path="/settings" element={<Settings />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/communities" element={<Communities />} />
+          <Route path="/my-communities" element={<MyCommunities />} />
           <Route path="/community/:slug" element={<CommunityDetail />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/chat/:friendId" element={<Chat />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

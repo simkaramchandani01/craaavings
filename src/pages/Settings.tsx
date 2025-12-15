@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Settings as SettingsIcon } from "lucide-react";
+import { Loader2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
+import AppSidebar from "@/components/AppSidebar";
 
 const Settings = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -128,25 +129,20 @@ const Settings = () => {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background flex">
+        <AppSidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex">
+      <AppSidebar />
+      <div className="flex-1 container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/home")}
-            className="mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <SettingsIcon className="w-8 h-8 text-primary" />

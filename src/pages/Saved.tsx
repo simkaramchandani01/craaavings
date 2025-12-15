@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChefHat, MapPin, Trash2, Clock, Utensils, DollarSign } from "lucide-react";
+import { ChefHat, MapPin, Trash2, Clock, Utensils, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
+import AppSidebar from "@/components/AppSidebar";
 
 interface SavedRecipe {
   id: string;
@@ -128,25 +129,20 @@ const Saved = () => {
 
   if (checkingAuth || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background flex">
+        <AppSidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex">
+      <AppSidebar />
+      <div className="flex-1 container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/discover")}
-            className="mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Discover
-          </Button>
-
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">My Saved Items</h1>
             <p className="text-lg text-muted-foreground">

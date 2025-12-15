@@ -14,7 +14,7 @@ type CommunityWithMembers = Community & {
   member_count?: number;
 };
 
-const Communities = () => {
+const MyCommunities = () => {
   const [user, setUser] = useState<any>(null);
   const [communities, setCommunities] = useState<CommunityWithMembers[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +29,7 @@ const Communities = () => {
         return;
       }
       setUser(session.user);
-      await loadCommunities(session.user.id);
+      await loadMyCommunities(session.user.id);
     };
 
     checkAuth();
@@ -38,7 +38,7 @@ const Communities = () => {
       async (event, session) => {
         setUser(session?.user ?? null);
         if (session?.user) {
-          await loadCommunities(session.user.id);
+          await loadMyCommunities(session.user.id);
         }
       }
     );
@@ -46,32 +46,35 @@ const Communities = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const loadCommunities = async (userId: string) => {
+  const loadMyCommunities = async (userId: string) => {
     setIsLoading(true);
     try {
       // Get communities user is a member of
-      const { data: memberships } = await supabase
+      const { data: memberships, error: memberError } = await supabase
         .from("community_members")
         .select("community_id")
         .eq("user_id", userId);
 
-      const joinedIds = (memberships || []).map((m) => m.community_id);
+      if (memberError) throw memberError;
 
-      // Get all communities
+      if (!memberships || memberships.length === 0) {
+        setCommunities([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const communityIds = memberships.map((m) => m.community_id);
+
       const { data: communitiesData, error: communitiesError } = await supabase
         .from("communities")
-        .select("*");
+        .select("*")
+        .in("id", communityIds);
 
       if (communitiesError) throw communitiesError;
 
-      // Filter to only show communities user hasn't joined
-      const notJoinedCommunities = (communitiesData || []).filter(
-        (c) => !joinedIds.includes(c.id)
-      );
-
       // Get member counts
       const communitiesWithData = await Promise.all(
-        notJoinedCommunities.map(async (community) => {
+        (communitiesData || []).map(async (community) => {
           const { count } = await supabase
             .from("community_members")
             .select("*", { count: "exact", head: true })
@@ -96,26 +99,27 @@ const Communities = () => {
     }
   };
 
-  const handleJoinCommunity = async (communityId: string) => {
+  const handleLeaveCommunity = async (communityId: string) => {
     if (!user) return;
 
     try {
-      const { error } = await supabase.from("community_members").insert({
-        community_id: communityId,
-        user_id: user.id,
-      });
+      const { error } = await supabase
+        .from("community_members")
+        .delete()
+        .eq("community_id", communityId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       toast({
-        title: "Joined community!",
-        description: "You can now share recipes and participate in discussions.",
+        title: "Left community",
+        description: "You've successfully left this community.",
       });
 
-      await loadCommunities(user.id);
+      await loadMyCommunities(user.id);
     } catch (error: any) {
       toast({
-        title: "Failed to join community",
+        title: "Failed to leave community",
         description: error.message,
         variant: "destructive",
       });
@@ -138,18 +142,21 @@ const Communities = () => {
       <AppSidebar />
       <div className="flex-1 container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Browse Communities</h1>
+          <h1 className="text-4xl font-bold mb-2">My Communities</h1>
           <p className="text-muted-foreground">
-            Discover new communities to join
+            Communities you've joined
           </p>
         </div>
 
         {communities.length === 0 ? (
           <Card className="p-12 text-center">
-            <h3 className="text-xl font-semibold mb-2">No new communities</h3>
-            <p className="text-muted-foreground">
-              You've joined all available communities!
+            <h3 className="text-xl font-semibold mb-2">No communities yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Browse and join communities to see them here!
             </p>
+            <Button onClick={() => navigate("/communities")}>
+              Browse Communities
+            </Button>
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -174,9 +181,21 @@ const Communities = () => {
                     <span>{community.member_count} members</span>
                   </div>
 
-                  <Button size="sm" onClick={() => handleJoinCommunity(community.id)}>
-                    Join
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/community/${community.slug}`)}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleLeaveCommunity(community.id)}
+                    >
+                      Leave
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -187,4 +206,4 @@ const Communities = () => {
   );
 };
 
-export default Communities;
+export default MyCommunities;

@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FolderHeart, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import CravingForm from "@/components/CravingForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
+import AppSidebar from "@/components/AppSidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -104,37 +103,10 @@ const Discover = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex">
+      <AppSidebar />
+      <div className="flex-1 container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/home")}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/saved")}
-              >
-                <FolderHeart className="w-4 h-4 mr-2" />
-                My Saved Items
-              </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  navigate("/");
-                }}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               What Are You Craving?
