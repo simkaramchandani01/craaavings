@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Clock, Utensils } from "lucide-react";
+import { Heart, MessageCircle, Clock, Utensils, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import RecipeComments from "./RecipeComments";
 import StarRating from "./StarRating";
+import ShareRecipeToFriend from "./ShareRecipeToFriend";
 import type { Database } from "@/integrations/supabase/types";
 
 type Recipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
@@ -30,10 +31,23 @@ interface RecipeCardProps {
 const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [currentRating, setCurrentRating] = useState(recipe.user_rating || 0);
   const [averageRating, setAverageRating] = useState(recipe.average_rating || 0);
   const [isRating, setIsRating] = useState(false);
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   const handleLike = async () => {
     setIsLiking(true);
@@ -124,7 +138,7 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
           <div>
             <p className="font-semibold">{recipe.profiles.username}</p>
             <p className="text-sm text-muted-foreground">
-              {new Date(recipe.created_at).toLocaleDateString()}
+              {formatTimestamp(recipe.created_at)}
             </p>
           </div>
         </div>
@@ -244,10 +258,27 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
             <MessageCircle className="w-4 h-4 mr-2" />
             {recipe.comments_count || 0}
           </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowShareDialog(true)}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
         </div>
 
         {/* Comments Section */}
         {showComments && <RecipeComments recipeId={recipe.id} />}
+
+        {/* Share to Friend Dialog */}
+        <ShareRecipeToFriend
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          recipeId={recipe.id}
+          recipeTitle={recipe.title}
+        />
       </div>
     </Card>
   );

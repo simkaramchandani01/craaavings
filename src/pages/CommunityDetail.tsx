@@ -7,6 +7,7 @@ import { Loader2, ArrowLeft, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import RecipeCard from "@/components/RecipeCard";
 import ShareRecipeDialog from "@/components/ShareRecipeDialog";
+import AppSidebar from "@/components/AppSidebar";
 import type { Database } from "@/integrations/supabase/types";
 
 type Community = Database["public"]["Tables"]["communities"]["Row"];
@@ -152,32 +153,39 @@ const CommunityDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background flex">
+        <AppSidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   if (!community) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <h2 className="text-2xl font-bold mb-2">Community not found</h2>
-          <p className="text-muted-foreground mb-4">
-            This community doesn't exist or has been removed.
-          </p>
-          <Button onClick={() => navigate("/communities")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Communities
-          </Button>
-        </Card>
+      <div className="min-h-screen bg-background flex">
+        <AppSidebar />
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-2">Community not found</h2>
+            <p className="text-muted-foreground mb-4">
+              This community doesn't exist or has been removed.
+            </p>
+            <Button onClick={() => navigate("/communities")}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Communities
+            </Button>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background flex">
+      <AppSidebar />
+      <div className="flex-1 container mx-auto px-4 py-8">
         <div className="mb-8">
           <Button variant="ghost" onClick={() => navigate("/communities")} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
