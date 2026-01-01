@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Plus, X, Upload, FolderHeart } from "lucide-react";
+import { Loader2, Plus, X, Upload, FolderHeart, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface SavedRecipe {
   id: string;
@@ -28,13 +29,28 @@ interface ShareRecipeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   communityId: string;
+  communityCategory: string;
   onRecipeShared: () => void;
+}
+
+interface ScreeningResult {
+  isMatch: boolean;
+  confidence: number;
+  reason: string;
+  suggestedCategories: string[];
+}
+
+interface SuggestedCommunity {
+  id: string;
+  name: string;
+  category: string;
 }
 
 const ShareRecipeDialog = ({
   open,
   onOpenChange,
   communityId,
+  communityCategory,
   onRecipeShared,
 }: ShareRecipeDialogProps) => {
   const [shareMode, setShareMode] = useState<"new" | "saved">("new");
@@ -51,11 +67,19 @@ const ShareRecipeDialog = ({
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [selectedSavedRecipe, setSelectedSavedRecipe] = useState<string>("");
   const [isLoadingSaved, setIsLoadingSaved] = useState(false);
+  const [isScreening, setIsScreening] = useState(false);
+  const [screeningResult, setScreeningResult] = useState<ScreeningResult | null>(null);
+  const [suggestedCommunities, setSuggestedCommunities] = useState<SuggestedCommunity[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open && shareMode === "saved") {
       loadSavedRecipes();
+    }
+    // Reset screening when dialog opens/closes
+    if (open) {
+      setScreeningResult(null);
+      setSuggestedCommunities([]);
     }
   }, [open, shareMode]);
 
@@ -141,8 +165,94 @@ const ShareRecipeDialog = ({
     return data.publicUrl;
   };
 
+  const screenRecipe = async (recipeTitle: string, recipeDescription: string, recipeIngredients: string[]) => {
+    setIsScreening(true);
+    setScreeningResult(null);
+    setSuggestedCommunities([]);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/screen-recipe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            recipeTitle,
+            recipeDescription,
+            ingredients: recipeIngredients,
+            communityCategory,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Screening failed");
+      }
+
+      const result: ScreeningResult = await response.json();
+      setScreeningResult(result);
+
+      // If not a match, find suggested communities
+      if (!result.isMatch && result.suggestedCategories?.length > 0) {
+        const { data: communities } = await supabase
+          .from("communities")
+          .select("id, name, category")
+          .in("category", result.suggestedCategories)
+          .eq("is_private", false)
+          .limit(5);
+
+        if (communities) {
+          setSuggestedCommunities(communities);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Screening error:", error);
+      toast({
+        title: "Screening error",
+        description: "Could not screen recipe. Proceeding anyway.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsScreening(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let recipeTitle = title;
+    let recipeDescription = description;
+    let recipeIngredients = ingredients.filter((i) => i.trim());
+
+    if (shareMode === "saved" && selectedSavedRecipe) {
+      const savedRecipe = savedRecipes.find((r) => r.id === selectedSavedRecipe);
+      if (savedRecipe) {
+        recipeTitle = savedRecipe.title;
+        recipeIngredients = savedRecipe.ingredients;
+      }
+    }
+
+    // Screen the recipe first if not already screened
+    if (!screeningResult) {
+      const result = await screenRecipe(recipeTitle, recipeDescription, recipeIngredients);
+      if (result && !result.isMatch) {
+        return; // Stop and show suggestions
+      }
+    } else if (!screeningResult.isMatch) {
+      toast({
+        title: "Recipe doesn't match",
+        description: "Please choose a suggested community or modify your recipe.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -152,7 +262,6 @@ const ShareRecipeDialog = ({
       let imageUrl: string | null = null;
 
       if (shareMode === "saved" && selectedSavedRecipe) {
-        // Share from saved recipes
         const savedRecipe = savedRecipes.find((r) => r.id === selectedSavedRecipe);
         if (!savedRecipe) throw new Error("Recipe not found");
 
@@ -168,7 +277,6 @@ const ShareRecipeDialog = ({
 
         if (error) throw error;
       } else {
-        // Share new recipe
         const filteredIngredients = ingredients.filter((i) => i.trim());
         const filteredInstructions = instructions.filter((i) => i.trim());
 
@@ -209,6 +317,8 @@ const ShareRecipeDialog = ({
       setImagePreview("");
       setSelectedSavedRecipe("");
       setShareMode("new");
+      setScreeningResult(null);
+      setSuggestedCommunities([]);
 
       onOpenChange(false);
       onRecipeShared();
@@ -223,6 +333,15 @@ const ShareRecipeDialog = ({
     }
   };
 
+  const handleShareToSuggestedCommunity = (suggestedCommunityId: string) => {
+    // Close this dialog and notify parent to open for new community
+    toast({
+      title: "Redirecting",
+      description: "Please share your recipe in the suggested community.",
+    });
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -230,7 +349,52 @@ const ShareRecipeDialog = ({
           <DialogTitle>Share a Recipe</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={shareMode} onValueChange={(v) => setShareMode(v as "new" | "saved")}>
+        {screeningResult && !screeningResult.isMatch && (
+          <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">Recipe doesn't match this community</p>
+                <p className="text-sm text-muted-foreground mt-1">{screeningResult.reason}</p>
+              </div>
+            </div>
+            
+            {suggestedCommunities.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Suggested communities:</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedCommunities.map((community) => (
+                    <Badge
+                      key={community.id}
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                      onClick={() => handleShareToSuggestedCommunity(community.id)}
+                    >
+                      {community.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setScreeningResult(null);
+                setSuggestedCommunities([]);
+              }}
+            >
+              Modify Recipe
+            </Button>
+          </div>
+        )}
+
+        <Tabs value={shareMode} onValueChange={(v) => {
+          setShareMode(v as "new" | "saved");
+          setScreeningResult(null);
+          setSuggestedCommunities([]);
+        }}>
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="new" className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -272,15 +436,20 @@ const ShareRecipeDialog = ({
                     type="button"
                     variant="outline"
                     onClick={() => onOpenChange(false)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isScreening}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={isSubmitting || !selectedSavedRecipe}
+                    disabled={isSubmitting || isScreening || !selectedSavedRecipe}
                   >
-                    {isSubmitting ? (
+                    {isScreening ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Screening...
+                      </>
+                    ) : isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Sharing...
@@ -391,82 +560,87 @@ const ShareRecipeDialog = ({
                 </div>
               </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Ingredients *</Label>
-              <Button type="button" size="sm" variant="outline" onClick={handleAddIngredient}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {ingredients.map((ingredient, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder={`Ingredient ${index + 1}`}
-                    value={ingredient}
-                    onChange={(e) => handleIngredientChange(index, e.target.value)}
-                    required
-                  />
-                  {ingredients.length > 1 && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleRemoveIngredient(index)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Ingredients *</Label>
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddIngredient}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add
+                  </Button>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="space-y-2">
+                  {ingredients.map((ingredient, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder={`Ingredient ${index + 1}`}
+                        value={ingredient}
+                        onChange={(e) => handleIngredientChange(index, e.target.value)}
+                        required
+                      />
+                      {ingredients.length > 1 && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleRemoveIngredient(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Instructions *</Label>
-              <Button type="button" size="sm" variant="outline" onClick={handleAddInstruction}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {instructions.map((instruction, index) => (
-                <div key={index} className="flex gap-2">
-                  <Textarea
-                    placeholder={`Step ${index + 1}`}
-                    value={instruction}
-                    onChange={(e) => handleInstructionChange(index, e.target.value)}
-                    required
-                    rows={2}
-                  />
-                  {instructions.length > 1 && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleRemoveInstruction(index)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Instructions *</Label>
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddInstruction}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add
+                  </Button>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="space-y-2">
+                  {instructions.map((instruction, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Textarea
+                        placeholder={`Step ${index + 1}`}
+                        value={instruction}
+                        onChange={(e) => handleInstructionChange(index, e.target.value)}
+                        required
+                        rows={2}
+                      />
+                      {instructions.length > 1 && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleRemoveInstruction(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isScreening}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" disabled={isSubmitting || isScreening}>
+                  {isScreening ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Screening...
+                    </>
+                  ) : isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Sharing...
