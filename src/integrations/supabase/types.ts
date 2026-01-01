@@ -22,6 +22,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          is_private: boolean
           name: string
           slug: string
           updated_at: string
@@ -33,6 +34,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_private?: boolean
           name: string
           slug: string
           updated_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_private?: boolean
           name?: string
           slug?: string
           updated_at?: string

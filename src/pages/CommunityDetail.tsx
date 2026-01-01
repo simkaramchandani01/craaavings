@@ -232,6 +232,7 @@ const CommunityDetail = () => {
             open={showShareDialog}
             onOpenChange={setShowShareDialog}
             communityId={community.id}
+            communityCategory={community.category}
             onRecipeShared={handleRecipeShared}
           />
         )}

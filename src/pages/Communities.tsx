@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, Plus, Lock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import AppSidebar from "@/components/AppSidebar";
+import CreateCommunityDialog from "@/components/CreateCommunityDialog";
 import type { Database } from "@/integrations/supabase/types";
 
 type Community = Database["public"]["Tables"]["communities"]["Row"];
@@ -18,6 +19,7 @@ const Communities = () => {
   const [user, setUser] = useState<any>(null);
   const [communities, setCommunities] = useState<CommunityWithMembers[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -57,10 +59,11 @@ const Communities = () => {
 
       const joinedIds = (memberships || []).map((m) => m.community_id);
 
-      // Get all communities
+      // Get all public communities that user hasn't joined
       const { data: communitiesData, error: communitiesError } = await supabase
         .from("communities")
-        .select("*");
+        .select("*")
+        .eq("is_private", false);
 
       if (communitiesError) throw communitiesError;
 
@@ -137,11 +140,17 @@ const Communities = () => {
     <div className="min-h-screen bg-background flex">
       <AppSidebar />
       <div className="flex-1 container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Browse Communities</h1>
-          <p className="text-muted-foreground">
-            Discover new communities to join
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Browse Communities</h1>
+            <p className="text-muted-foreground">
+              Discover new communities to join
+            </p>
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Community
+          </Button>
         </div>
 
         {communities.length === 0 ? (
@@ -157,7 +166,10 @@ const Communities = () => {
               <Card key={community.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold mb-2">{community.name}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-xl font-semibold">{community.name}</h3>
+                      {community.is_private && <Lock className="w-4 h-4 text-muted-foreground" />}
+                    </div>
                     <Badge variant="secondary" className="mb-3">
                       {community.category}
                     </Badge>
@@ -182,6 +194,12 @@ const Communities = () => {
             ))}
           </div>
         )}
+
+        <CreateCommunityDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onCommunityCreated={() => user && loadCommunities(user.id)}
+        />
       </div>
     </div>
   );
