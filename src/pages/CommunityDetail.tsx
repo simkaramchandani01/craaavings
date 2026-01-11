@@ -221,7 +221,9 @@ const CommunityDetail = () => {
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
+                currentUserId={user?.id}
                 onLike={() => user && loadCommunity(user.id)}
+                onDelete={() => user && loadCommunity(user.id)}
               />
             ))}
           </div>

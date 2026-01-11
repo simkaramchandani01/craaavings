@@ -266,6 +266,7 @@ export type Database = {
           dietary_preferences: string[] | null
           full_name: string | null
           id: string
+          is_private: boolean
           updated_at: string
           username: string
         }
@@ -277,6 +278,7 @@ export type Database = {
           dietary_preferences?: string[] | null
           full_name?: string | null
           id: string
+          is_private?: boolean
           updated_at?: string
           username: string
         }
@@ -288,6 +290,7 @@ export type Database = {
           dietary_preferences?: string[] | null
           full_name?: string | null
           id?: string
+          is_private?: boolean
           updated_at?: string
           username?: string
         }

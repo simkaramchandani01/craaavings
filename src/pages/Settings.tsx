@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
@@ -15,6 +16,8 @@ const Settings = () => {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [username, setUsername] = useState("");
   const [originalUsername, setOriginalUsername] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [originalIsPrivate, setOriginalIsPrivate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const navigate = useNavigate();
@@ -51,13 +54,15 @@ const Settings = () => {
   const fetchProfile = async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("username")
+      .select("username, is_private")
       .eq("id", user?.id)
       .single();
 
     if (data && !error) {
       setUsername(data.username);
       setOriginalUsername(data.username);
+      setIsPrivate(data.is_private || false);
+      setOriginalIsPrivate(data.is_private || false);
     }
   };
 
@@ -86,36 +91,43 @@ const Settings = () => {
 
   const handleSave = async () => {
     if (!validateUsername(username)) return;
-    if (username === originalUsername) {
-      toast({ title: "No changes", description: "Username is unchanged" });
+    
+    const usernameChanged = username !== originalUsername;
+    const privacyChanged = isPrivate !== originalIsPrivate;
+    
+    if (!usernameChanged && !privacyChanged) {
+      toast({ title: "No changes", description: "No changes to save" });
       return;
     }
 
     setIsSaving(true);
     try {
-      // Check if username is taken
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", username)
-        .neq("id", user?.id)
-        .maybeSingle();
+      // Check if username is taken (only if changed)
+      if (usernameChanged) {
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", username)
+          .neq("id", user?.id)
+          .maybeSingle();
 
-      if (existing) {
-        setUsernameError("Username is already taken");
-        setIsSaving(false);
-        return;
+        if (existing) {
+          setUsernameError("Username is already taken");
+          setIsSaving(false);
+          return;
+        }
       }
 
       const { error } = await supabase
         .from("profiles")
-        .update({ username })
+        .update({ username, is_private: isPrivate })
         .eq("id", user?.id);
 
       if (error) throw error;
 
       setOriginalUsername(username);
-      toast({ title: "Saved", description: "Username updated successfully" });
+      setOriginalIsPrivate(isPrivate);
+      toast({ title: "Saved", description: "Settings updated successfully" });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -151,7 +163,7 @@ const Settings = () => {
           </div>
 
           <Card className="p-6">
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -167,6 +179,20 @@ const Settings = () => {
                 <p className="text-xs text-muted-foreground">
                   Max 12 characters, letters and numbers only
                 </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="private-profile">Private Profile</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Only accepted friends can see your full profile
+                  </p>
+                </div>
+                <Switch
+                  id="private-profile"
+                  checked={isPrivate}
+                  onCheckedChange={setIsPrivate}
+                />
               </div>
 
               <Button
