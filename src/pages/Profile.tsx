@@ -80,11 +80,12 @@ const Profile = () => {
         .single();
 
       if (profileError) throw profileError;
-      setProfile(profileData);
+      setProfile(profileData as ProfileData);
 
       const isOwnProfile = currentUserId === userId;
 
       // Check friendship status if not own profile
+      let isAcceptedFriend = false;
       if (!isOwnProfile) {
         const { data: friendship } = await supabase
           .from("friendships")
@@ -93,11 +94,13 @@ const Profile = () => {
           .eq("status", "accepted")
           .maybeSingle();
 
-        setIsFriend(!!friendship);
+        isAcceptedFriend = !!friendship;
+        setIsFriend(isAcceptedFriend);
 
         // Determine if can view gallery
-        // Can view if: own profile, profile is public, or is accepted friend
-        setCanViewGallery(!profileData.is_private || !!friendship);
+        // Can view if: profile is public, or is accepted friend
+        const profileIsPrivate = (profileData as any).is_private;
+        setCanViewGallery(!profileIsPrivate || isAcceptedFriend);
       } else {
         setCanViewGallery(true);
       }
@@ -125,6 +128,7 @@ const Profile = () => {
       });
 
       // Get mutual communities (only if viewing someone else's profile)
+      let mutualCommunityIds: string[] = [];
       if (!isOwnProfile) {
         // Get current user's communities
         const { data: myMemberships } = await supabase
@@ -140,37 +144,43 @@ const Profile = () => {
 
         if (myMemberships && theirMemberships) {
           const myIds = new Set(myMemberships.map(m => m.community_id));
-          const mutualIds = theirMemberships
+          mutualCommunityIds = theirMemberships
             .filter(m => myIds.has(m.community_id))
             .map(m => m.community_id);
 
-          if (mutualIds.length > 0) {
+          if (mutualCommunityIds.length > 0) {
             const { data: communities } = await supabase
               .from("communities")
               .select("id, name, slug")
-              .in("id", mutualIds);
+              .in("id", mutualCommunityIds);
 
             setMutualCommunities(communities || []);
           }
         }
 
-        // Get recipes from mutual communities only
-        if (mutualCommunities.length > 0 || canViewGallery) {
-          const mutualCommunityIds = mutualCommunities.map(c => c.id);
-          
-          let query = supabase
+        // Get recipes - if can view full gallery, show all; otherwise only from mutual communities
+        const profileIsPrivate = (profileData as any).is_private;
+        if (!profileIsPrivate || isAcceptedFriend) {
+          // Can see all recipes
+          const { data: recipesData } = await supabase
             .from("shared_recipes")
             .select("id, title, image_url, created_at, community_id")
             .eq("user_id", userId)
             .order("created_at", { ascending: false });
 
-          // If not can view full gallery, filter by mutual communities
-          if (!canViewGallery && mutualCommunityIds.length > 0) {
-            query = query.in("community_id", mutualCommunityIds);
-          }
-
-          const { data: recipesData } = await query;
           setRecipes(recipesData || []);
+        } else if (mutualCommunityIds.length > 0) {
+          // Can only see recipes from mutual communities
+          const { data: recipesData } = await supabase
+            .from("shared_recipes")
+            .select("id, title, image_url, created_at, community_id")
+            .eq("user_id", userId)
+            .in("community_id", mutualCommunityIds)
+            .order("created_at", { ascending: false });
+
+          setRecipes(recipesData || []);
+        } else {
+          setRecipes([]);
         }
       } else {
         // Own profile - get all recipes
