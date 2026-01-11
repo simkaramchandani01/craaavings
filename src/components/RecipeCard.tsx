@@ -1,14 +1,26 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Clock, Utensils, Share2 } from "lucide-react";
+import { Heart, MessageCircle, Clock, Utensils, Share2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import RecipeComments from "./RecipeComments";
 import StarRating from "./StarRating";
 import ShareRecipeToFriend from "./ShareRecipeToFriend";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 
 type Recipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
@@ -26,9 +38,12 @@ type Recipe = Database["public"]["Tables"]["shared_recipes"]["Row"] & {
 interface RecipeCardProps {
   recipe: Recipe;
   onLike: () => void;
+  onDelete?: () => void;
+  currentUserId?: string;
 }
 
-const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, onLike, onDelete, currentUserId }: RecipeCardProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -36,6 +51,9 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
   const [currentRating, setCurrentRating] = useState(recipe.user_rating || 0);
   const [averageRating, setAverageRating] = useState(recipe.average_rating || 0);
   const [isRating, setIsRating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isOwnPost = currentUserId === recipe.user_id;
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
@@ -124,23 +142,83 @@ const RecipeCard = ({ recipe, onLike }: RecipeCardProps) => {
   const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const instructions = Array.isArray(recipe.instructions) ? recipe.instructions : [];
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("shared_recipes")
+        .delete()
+        .eq("id", recipe.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Recipe deleted",
+        description: "Your recipe has been removed from the community.",
+      });
+
+      onDelete?.();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar>
-            <AvatarImage src={recipe.profiles.avatar_url || undefined} />
-            <AvatarFallback>
-              {recipe.profiles.username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold">{recipe.profiles.username}</p>
-            <p className="text-sm text-muted-foreground">
-              {formatTimestamp(recipe.created_at)}
-            </p>
+        <div className="flex items-center justify-between mb-4">
+          <div 
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+            onClick={() => navigate(`/profile/${recipe.user_id}`)}
+          >
+            <Avatar>
+              <AvatarImage src={recipe.profiles.avatar_url || undefined} />
+              <AvatarFallback>
+                {recipe.profiles.username.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-semibold">{recipe.profiles.username}</p>
+              <p className="text-sm text-muted-foreground">
+                {formatTimestamp(recipe.created_at)}
+              </p>
+            </div>
           </div>
+
+          {isOwnPost && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Recipe</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this recipe? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
 
         {/* Image */}
