@@ -257,6 +257,51 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string
+          saved_recipe_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          saved_recipe_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          saved_recipe_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_posts_saved_recipe_id_fkey"
+            columns: ["saved_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "saved_recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
