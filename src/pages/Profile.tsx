@@ -5,10 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Calendar, BookOpen, Users, FileText, Lock } from "lucide-react";
+import { Loader2, ArrowLeft, BookOpen, Users, UserCheck, Lock, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import AppSidebar from "@/components/AppSidebar";
-import RecipeComments from "@/components/RecipeComments";
+import AddProfilePostDialog from "@/components/AddProfilePostDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ProfileData {
   id: string;
@@ -22,21 +32,18 @@ interface ProfileData {
 interface ProfileStats {
   recipesSaved: number;
   communitiesJoined: number;
-  postsCount: number;
+  friendsCount: number;
 }
 
-interface SharedRecipe {
+interface ProfilePost {
   id: string;
-  title: string;
-  image_url: string | null;
+  image_url: string;
+  caption: string | null;
   created_at: string;
-  community_id: string;
-}
-
-interface MutualCommunity {
-  id: string;
-  name: string;
-  slug: string;
+  saved_recipe_id: string | null;
+  saved_recipe?: {
+    title: string;
+  } | null;
 }
 
 const Profile = () => {
@@ -45,13 +52,13 @@ const Profile = () => {
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [stats, setStats] = useState<ProfileStats>({ recipesSaved: 0, communitiesJoined: 0, postsCount: 0 });
-  const [recipes, setRecipes] = useState<SharedRecipe[]>([]);
-  const [mutualCommunities, setMutualCommunities] = useState<MutualCommunity[]>([]);
+  const [stats, setStats] = useState<ProfileStats>({ recipesSaved: 0, communitiesJoined: 0, friendsCount: 0 });
+  const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [canViewGallery, setCanViewGallery] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState<string | null>(null);
+  const [showAddPostDialog, setShowAddPostDialog] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -98,7 +105,6 @@ const Profile = () => {
         setIsFriend(isAcceptedFriend);
 
         // Determine if can view gallery
-        // Can view if: profile is public, or is accepted friend
         const profileIsPrivate = (profileData as any).is_private;
         setCanViewGallery(!profileIsPrivate || isAcceptedFriend);
       } else {
@@ -116,81 +122,22 @@ const Profile = () => {
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId);
 
-      const { count: postsCount } = await supabase
-        .from("shared_recipes")
+      // Get friends count (accepted friendships where user is either sender or receiver)
+      const { count: friendsCount } = await supabase
+        .from("friendships")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", userId);
+        .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+        .eq("status", "accepted");
 
       setStats({
         recipesSaved: savedCount || 0,
         communitiesJoined: communitiesCount || 0,
-        postsCount: postsCount || 0,
+        friendsCount: friendsCount || 0,
       });
 
-      // Get mutual communities (only if viewing someone else's profile)
-      let mutualCommunityIds: string[] = [];
-      if (!isOwnProfile) {
-        // Get current user's communities
-        const { data: myMemberships } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", currentUserId);
-
-        // Get target user's communities
-        const { data: theirMemberships } = await supabase
-          .from("community_members")
-          .select("community_id")
-          .eq("user_id", userId);
-
-        if (myMemberships && theirMemberships) {
-          const myIds = new Set(myMemberships.map(m => m.community_id));
-          mutualCommunityIds = theirMemberships
-            .filter(m => myIds.has(m.community_id))
-            .map(m => m.community_id);
-
-          if (mutualCommunityIds.length > 0) {
-            const { data: communities } = await supabase
-              .from("communities")
-              .select("id, name, slug")
-              .in("id", mutualCommunityIds);
-
-            setMutualCommunities(communities || []);
-          }
-        }
-
-        // Get recipes - if can view full gallery, show all; otherwise only from mutual communities
-        const profileIsPrivate = (profileData as any).is_private;
-        if (!profileIsPrivate || isAcceptedFriend) {
-          // Can see all recipes
-          const { data: recipesData } = await supabase
-            .from("shared_recipes")
-            .select("id, title, image_url, created_at, community_id")
-            .eq("user_id", userId)
-            .order("created_at", { ascending: false });
-
-          setRecipes(recipesData || []);
-        } else if (mutualCommunityIds.length > 0) {
-          // Can only see recipes from mutual communities
-          const { data: recipesData } = await supabase
-            .from("shared_recipes")
-            .select("id, title, image_url, created_at, community_id")
-            .eq("user_id", userId)
-            .in("community_id", mutualCommunityIds)
-            .order("created_at", { ascending: false });
-
-          setRecipes(recipesData || []);
-        } else {
-          setRecipes([]);
-        }
-      } else {
-        // Own profile - get all recipes
-        const { data: recipesData } = await supabase
-          .from("shared_recipes")
-          .select("id, title, image_url, created_at, community_id")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-
-        setRecipes(recipesData || []);
+      // Load profile posts if can view gallery
+      if (isOwnProfile || !profileData.is_private || isAcceptedFriend) {
+        await loadProfilePosts();
       }
     } catch (error: any) {
       toast({
@@ -203,11 +150,60 @@ const Profile = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
+  const loadProfilePosts = async () => {
+    if (!userId) return;
+
+    const { data: posts } = await supabase
+      .from("profile_posts")
+      .select(`
+        id,
+        image_url,
+        caption,
+        created_at,
+        saved_recipe_id
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    // Fetch saved recipe titles for posts that have them
+    const postsWithRecipes = await Promise.all(
+      (posts || []).map(async (post) => {
+        if (post.saved_recipe_id) {
+          const { data: recipe } = await supabase
+            .from("saved_recipes")
+            .select("title")
+            .eq("id", post.saved_recipe_id)
+            .single();
+          return { ...post, saved_recipe: recipe };
+        }
+        return { ...post, saved_recipe: null };
+      })
+    );
+
+    setProfilePosts(postsWithRecipes);
+  };
+
+  const handleDeletePost = async () => {
+    if (!postToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("profile_posts")
+        .delete()
+        .eq("id", postToDelete);
+
+      if (error) throw error;
+
+      toast({ title: "Post deleted" });
+      setPostToDelete(null);
+      await loadProfilePosts();
+    } catch (error: any) {
+      toast({
+        title: "Error deleting post",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -238,6 +234,8 @@ const Profile = () => {
     );
   }
 
+  const isOwnProfile = currentUser?.id === userId;
+
   return (
     <div className="min-h-screen bg-background flex">
       <AppSidebar />
@@ -258,16 +256,11 @@ const Profile = () => {
             </Avatar>
 
             <div className="flex-1 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
                 <h1 className="text-3xl font-bold">{profile.username}</h1>
                 {profile.is_private && (
                   <Lock className="w-5 h-5 text-muted-foreground" />
                 )}
-              </div>
-              
-              <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground mb-4">
-                <Calendar className="w-4 h-4" />
-                <span>Joined {formatDate(profile.created_at)}</span>
               </div>
 
               {profile.bio && (
@@ -287,91 +280,108 @@ const Profile = () => {
                   <span className="text-muted-foreground text-sm">Communities</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="font-semibold">{stats.postsCount}</span>
-                  <span className="text-muted-foreground text-sm">Posts</span>
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  <span className="font-semibold">{stats.friendsCount}</span>
+                  <span className="text-muted-foreground text-sm">Friends</span>
                 </div>
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Mutual Communities (only shown for other users) */}
-        {currentUser?.id !== userId && mutualCommunities.length > 0 && (
-          <Card className="p-4 mb-8">
-            <h3 className="font-semibold mb-3">Mutual Communities</h3>
-            <div className="flex flex-wrap gap-2">
-              {mutualCommunities.map((community) => (
-                <Badge
-                  key={community.id}
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
-                  onClick={() => navigate(`/community/${community.slug}`)}
-                >
-                  {community.name}
-                </Badge>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Recipe Gallery */}
+        {/* Image Gallery */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Recipes</h2>
-          
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">Posts</h2>
+            {isOwnProfile && (
+              <Button onClick={() => setShowAddPostDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Post
+              </Button>
+            )}
+          </div>
+
           {!canViewGallery && profile.is_private ? (
             <Card className="p-12 text-center">
               <Lock className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">Private Profile</h3>
               <p className="text-muted-foreground">
                 {isFriend 
-                  ? "You can only see posts from mutual communities."
-                  : "Add this user as a friend to see their recipes."}
+                  ? "This user's profile is private."
+                  : "Add this user as a friend to see their posts."}
               </p>
             </Card>
-          ) : recipes.length === 0 ? (
+          ) : profilePosts.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No recipes posted yet.</p>
+              <p className="text-muted-foreground">
+                {isOwnProfile 
+                  ? "No posts yet. Add your first post!" 
+                  : "No posts yet."}
+              </p>
             </Card>
           ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {recipes.map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    className="aspect-square relative rounded-lg overflow-hidden cursor-pointer group"
-                    onClick={() => setSelectedRecipe(selectedRecipe === recipe.id ? null : recipe.id)}
-                  >
-                    {recipe.image_url ? (
-                      <img
-                        src={recipe.image_url}
-                        alt={recipe.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <BookOpen className="w-8 h-8 text-muted-foreground" />
-                      </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {profilePosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="aspect-square relative rounded-lg overflow-hidden group"
+                >
+                  <img
+                    src={post.image_url}
+                    alt={post.caption || "Profile post"}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                    {post.saved_recipe && (
+                      <Badge variant="secondary" className="w-fit mb-1 text-xs">
+                        {post.saved_recipe.title}
+                      </Badge>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                      <p className="text-sm font-medium truncate">{recipe.title}</p>
-                    </div>
+                    {post.caption && (
+                      <p className="text-sm line-clamp-2">{post.caption}</p>
+                    )}
+                    {isOwnProfile && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPostToDelete(post.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                ))}
-              </div>
-
-              {/* Comments section for selected recipe */}
-              {selectedRecipe && (
-                <Card className="mt-6 p-4">
-                  <h3 className="font-semibold mb-4">
-                    Comments on "{recipes.find(r => r.id === selectedRecipe)?.title}"
-                  </h3>
-                  <RecipeComments recipeId={selectedRecipe} />
-                </Card>
-              )}
-            </>
+                </div>
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Add Post Dialog */}
+        <AddProfilePostDialog
+          open={showAddPostDialog}
+          onOpenChange={setShowAddPostDialog}
+          onPostCreated={loadProfilePosts}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!postToDelete} onOpenChange={() => setPostToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Post</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this post? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeletePost}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
