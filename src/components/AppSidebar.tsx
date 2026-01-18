@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   UsersRound,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ const AppSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(true);
-  const [profile, setProfile] = useState<{ username: string; avatar_url: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -30,7 +31,7 @@ const AppSidebar = () => {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("username, avatar_url")
+          .select("id, username, avatar_url")
           .eq("id", user.id)
           .single();
         setProfile(data);
@@ -46,6 +47,7 @@ const AppSidebar = () => {
 
   const navItems = [
     { icon: Home, label: "Home", path: "/home" },
+    { icon: User, label: "Profile", path: profile ? `/profile/${profile.id}` : "/home" },
     { icon: ChefHat, label: "Discover", path: "/discover" },
     { icon: Users, label: "Browse Communities", path: "/communities" },
     { icon: UsersRound, label: "My Communities", path: "/my-communities" },
