@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, UserPlus, Check, X, MessageCircle } from "lucide-react";
+import { Loader2, UserPlus, Check, X, MessageCircle, Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import AppSidebar from "@/components/AppSidebar";
+import UserPreviewCard from "@/components/UserPreviewCard";
 
 type Friend = {
   id: string;
@@ -22,6 +23,19 @@ type Friend = {
   };
 };
 
+interface UserPreview {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  bio: string | null;
+  is_private: boolean;
+  stats: {
+    recipesSaved: number;
+    communitiesJoined: number;
+    friendsCount: number;
+  };
+}
+
 const Friends = () => {
   const [user, setUser] = useState<any>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -29,6 +43,8 @@ const Friends = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchUsername, setSearchUsername] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [userPreview, setUserPreview] = useState<UserPreview | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -118,31 +134,91 @@ const Friends = () => {
     }
   };
 
-  const handleAddFriend = async () => {
-    if (!user || !searchUsername.trim()) return;
+  const handleSearchUser = async () => {
+    if (!searchUsername.trim()) {
+      setUserPreview(null);
+      return;
+    }
 
-    setIsAdding(true);
+    setIsSearching(true);
     try {
       // Find user by username
-      const { data: friendProfile, error: findError } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, username")
+        .select("id, username, avatar_url, bio, is_private")
         .eq("username", searchUsername.trim())
         .single();
 
-      if (findError || !friendProfile) {
-        throw new Error("User not found");
+      if (error || !profile) {
+        setUserPreview(null);
+        toast({
+          title: "User not found",
+          description: "No user with that username exists",
+          variant: "destructive",
+        });
+        return;
       }
 
-      if (friendProfile.id === user.id) {
-        throw new Error("You can't add yourself as a friend");
+      if (profile.id === user?.id) {
+        setUserPreview(null);
+        toast({
+          title: "That's you!",
+          description: "You can't add yourself as a friend",
+          variant: "destructive",
+        });
+        return;
       }
 
+      // Get stats for the user
+      const { count: savedCount } = await supabase
+        .from("saved_recipes")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", profile.id);
+
+      const { count: communitiesCount } = await supabase
+        .from("community_members")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", profile.id);
+
+      const { count: friendsCount } = await supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .or(`user_id.eq.${profile.id},friend_id.eq.${profile.id}`)
+        .eq("status", "accepted");
+
+      setUserPreview({
+        id: profile.id,
+        username: profile.username,
+        avatar_url: profile.avatar_url,
+        bio: profile.bio,
+        is_private: profile.is_private,
+        stats: {
+          recipesSaved: savedCount || 0,
+          communitiesJoined: communitiesCount || 0,
+          friendsCount: friendsCount || 0,
+        },
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error searching user",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddFriend = async () => {
+    if (!user || !userPreview) return;
+
+    setIsAdding(true);
+    try {
       // Check if friendship already exists
       const { data: existing } = await supabase
         .from("friendships")
         .select("*")
-        .or(`and(user_id.eq.${user.id},friend_id.eq.${friendProfile.id}),and(user_id.eq.${friendProfile.id},friend_id.eq.${user.id})`)
+        .or(`and(user_id.eq.${user.id},friend_id.eq.${userPreview.id}),and(user_id.eq.${userPreview.id},friend_id.eq.${user.id})`)
         .maybeSingle();
 
       if (existing) {
@@ -152,7 +228,7 @@ const Friends = () => {
       // Create friendship request
       const { error } = await supabase.from("friendships").insert({
         user_id: user.id,
-        friend_id: friendProfile.id,
+        friend_id: userPreview.id,
         status: "pending",
       });
 
@@ -160,10 +236,11 @@ const Friends = () => {
 
       toast({
         title: "Friend request sent!",
-        description: `Request sent to ${friendProfile.username}`,
+        description: `Request sent to ${userPreview.username}`,
       });
 
       setSearchUsername("");
+      setUserPreview(null);
     } catch (error: any) {
       toast({
         title: "Error adding friend",
@@ -242,20 +319,58 @@ const Friends = () => {
             <Input
               placeholder="Enter username..."
               value={searchUsername}
-              onChange={(e) => setSearchUsername(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddFriend()}
+              onChange={(e) => {
+                setSearchUsername(e.target.value);
+                setUserPreview(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
             />
-            <Button onClick={handleAddFriend} disabled={isAdding || !searchUsername.trim()}>
-              {isAdding ? (
+            <Button 
+              variant="secondary" 
+              onClick={handleSearchUser} 
+              disabled={isSearching || !searchUsername.trim()}
+            >
+              {isSearching ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
                 </>
               )}
             </Button>
           </div>
+
+          {/* User Preview */}
+          {userPreview && (
+            <div className="mt-4">
+              <UserPreviewCard
+                username={userPreview.username}
+                avatarUrl={userPreview.avatar_url}
+                bio={userPreview.bio}
+                isPrivate={userPreview.is_private}
+                stats={userPreview.stats}
+              />
+              <div className="flex gap-3 mt-4">
+                <Button onClick={handleAddFriend} disabled={isAdding}>
+                  {isAdding ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Send Friend Request
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/profile/${userPreview.id}`)}
+                >
+                  View Profile
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Pending Requests */}
@@ -265,7 +380,10 @@ const Friends = () => {
             <div className="space-y-3">
               {pendingRequests.map((request) => (
                 <Card key={request.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div 
+                    className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+                    onClick={() => navigate(`/profile/${request.profile.id}`)}
+                  >
                     <Avatar>
                       <AvatarImage src={request.profile.avatar_url || undefined} />
                       <AvatarFallback>
@@ -299,7 +417,10 @@ const Friends = () => {
             <div className="grid gap-3">
               {friends.map((friend) => (
                 <Card key={friend.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div 
+                    className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+                    onClick={() => navigate(`/profile/${friend.profile.id}`)}
+                  >
                     <Avatar>
                       <AvatarImage src={friend.profile.avatar_url || undefined} />
                       <AvatarFallback>
